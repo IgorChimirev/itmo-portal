@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель администратора - Прогресс тестирования</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .test-card {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+        }
+        .progress-container {
+            margin-top: 10px;
+        }
+        .user-row {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <a class="navbar-brand" href="#">ITMO Admin Panel</a>
+    </nav>
+
+    <div class="container mt-4">
+        <h2>Прогресс прохождения тестов</h2>
+        
+        <!-- Фильтры -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="userFilter">Фильтр по пользователю:</label>
+                            <input type="text" class="form-control" id="userFilter" placeholder="Введите имя пользователя">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="testFilter">Фильтр по тесту:</label>
+                            <select class="form-control" id="testFilter">
+                                <option value="">Все тесты</option>
+                                <option value="reaction">Тест на реакцию</option>
+                                <option value="tracking">Тест на слежение</option>
+                                <option value="combined">Совмещенный тест</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="statusFilter">Статус:</label>
+                            <select class="form-control" id="statusFilter">
+                                <option value="">Все</option>
+                                <option value="completed">Завершено</option>
+                                <option value="incomplete">Не завершено</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Список пользователей и их прогресс -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Пользователи</h5>
+                <div id="usersList">
+                    <!-- Данные будут загружены через AJAX -->
+                    <div class="text-center py-4">
+                        <div class="spinner-border" role="status">
+                            <span class="sr-only">Загрузка...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для деталей -->
+    <div class="modal fade" id="userDetailsModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Детали прохождения тестов</h5>
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span>&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="userTestDetails">
+                    <!-- Данные будут загружены динамически -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Закрыть</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Загружаем данные при загрузке страницы
+            loadUsersProgress();
+            
+            // Обновляем при изменении фильтров
+            $('#userFilter, #testFilter, #statusFilter').on('change keyup', function() {
+                loadUsersProgress();
+            });
+        });
+
+        function loadUsersProgress() {
+            const filters = {
+                username: $('#userFilter').val(),
+                test: $('#testFilter').val(),
+                status: $('#statusFilter').val()
+            };
+            
+            $.ajax({
+                url: 'admin_get_progress.php',
+                type: 'GET',
+                data: filters,
+                beforeSend: function() {
+                    $('#usersList').html(`
+                        <div class="text-center py-4">
+                            <div class="spinner-border" role="status">
+                                <span class="sr-only">Загрузка...</span>
+                            </div>
+                        </div>
+                    `);
+                },
+                success: function(data) {
+                    displayUsers(data.users);
+                },
+                error: function(xhr) {
+                    $('#usersList').html(`
+                        <div class="alert alert-danger">
+                            Ошибка загрузки данных: ${xhr.responseText || 'Неизвестная ошибка'}
+                        </div>
+                    `);
+                }
+            });
+        }
+
+        function displayUsers(users) {
+            if (!users || users.length === 0) {
+                $('#usersList').html('<div class="alert alert-info">Пользователи не найдены</div>');
+                return;
+            }
+            
+            let html = '';
+            users.forEach(user => {
+                const completedTests = user.tests.filter(t => t.completed).length;
+                const totalTests = user.tests.length;
+                const progress = Math.round((completedTests / totalTests) * 100);
+                
+                html += `
+                    <div class="user-row">
+                        <div class="row align-items-center">
+                            <div class="col-md-3">
+                                <h5>${user.username}</h5>
+                                <small class="text-muted">${user.email}</small>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="progress-container">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Прогресс: ${completedTests} из ${totalTests} тестов</span>
+                                        <span>${progress}%</span>
+                                    </div>
+                                    <div class="progress">
+                                        <div class="progress-bar" role="progressbar" 
+                                             style="width: ${progress}%" 
+                                             aria-valuenow="${progress}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 text-right">
+                                <button class="btn btn-info btn-sm view-details" 
+                                        data-user-id="${user.id}">
+                                    Подробнее
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            $('#usersList').html(html);
+            
+            // Обработчик для кнопок "Подробнее"
+            $('.view-details').click(function() {
+                const userId = $(this).data('user-id');
+                loadUserDetails(userId);
+            });
+        }
+
+        function loadUserDetails(userId) {
+            $.ajax({
+                url: 'admin_get_user_tests.php',
+                type: 'GET',
+                data: { user_id: userId },
+                beforeSend: function() {
+                    $('#userTestDetails').html(`
+                        <div class="text-center py-4">
+                            <div class="spinner-border" role="status">
+                                <span class="sr-only">Загрузка...</span>
+                            </div>
+                        </div>
+                    `);
+                },
+                success: function(data) {
+                    displayUserDetails(data);
+                    $('#userDetailsModal').modal('show');
+                },
+                error: function(xhr) {
+                    $('#userTestDetails').html(`
+                        <div class="alert alert-danger">
+                            Ошибка загрузки данных: ${xhr.responseText || 'Неизвестная ошибка'}
+                        </div>
+                    `);
+                }
+            });
+        }
+
+        function displayUserDetails(data) {
+            let html = `
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6>Пользователь: ${data.user.username}</h6>
+                    </div>
+                    <div class="col-md-6 text-right">
+                        <span class="badge ${data.completed_all ? 'badge-success' : 'badge-warning'}">
+                            ${data.completed_all ? 'Все тесты пройдены' : 'Не все тесты пройдены'}
+                        </span>
+                    </div>
+                </div>
+                <table class="table table-bordered">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Тест</th>
+                            <th>Статус</th>
+                            <th>Дата прохождения</th>
+                            <th>Результат</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            data.tests.forEach(test => {
+                html += `
+                    <tr>
+                        <td>${test.test_name}</td>
+                        <td>
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" 
+                                       id="test-${test.id}" ${test.completed ? 'checked' : ''}
+                                       data-test-id="${test.id}">
+                                <label class="custom-control-label" for="test-${test.id}">
+                                    ${test.completed ? 'Завершено' : 'Не завершено'}
+                                </label>
+                            </div>
+                        </td>
+                        <td>${test.completed_at || '-'}</td>
+                        <td>${test.result || '-'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary view-test" 
+                                    data-test-id="${test.id}">
+                                Просмотр
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `</tbody></table>`;
+            $('#userTestDetails').html(html);
+            
+            // Обработчики для чекбоксов
+            $('.custom-control-input').change(function() {
+                const testId = $(this).data('test-id');
+                const isCompleted = $(this).is(':checked');
+                
+                updateTestStatus(userId, testId, isCompleted);
+            });
+            
+            // Обработчики для кнопок просмотра
+            $('.view-test').click(function() {
+                const testId = $(this).data('test-id');
+                // Здесь можно реализовать просмотр деталей теста
+                alert('Просмотр деталей теста с ID: ' + testId);
+            });
+        }
+
+        function updateTestStatus(userId, testId, isCompleted) {
+            $.ajax({
+                url: 'admin_update_test_status.php',
+                type: 'POST',
+                data: {
+                    user_id: userId,
+                    test_id: testId,
+                    completed: isCompleted
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Можно обновить интерфейс или показать уведомление
+                    } else {
+                        alert('Ошибка обновления: ' + (response.message || 'Неизвестная ошибка'));
+                    }
+                },
+                error: function(xhr) {
+                    alert('Ошибка сервера: ' + (xhr.responseText || 'Неизвестная ошибка'));
+                }
+            });
+        }
+    </script>
+</body>
+</html>

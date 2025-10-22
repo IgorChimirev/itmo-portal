@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест на аналоговое слежение</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #tracking-object {
+            width: 50px;
+            height: 50px;
+            background-color: #007bff;
+            position: absolute;
+            border-radius: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            left: calc(50% - 25px);
+            transition: left 0.2s ease-out;
+        }
+
+        #tracking-area {
+            width: 100%;
+            height: 100px;
+            position: relative;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            margin: 20px auto;
+            overflow: hidden;
+            border: 1px solid #ccc;
+        }
+
+        #center-line {
+            width: 3px;
+            height: 100%;
+            background-color: red;
+            position: absolute;
+            left: 50%;
+            margin-left: -1.5px;
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 0 5px rgba(255,0,0,0.7);
+        }
+
+        .navbar {
+            margin-bottom: 20px;
+        }
+
+        .container {
+            padding-top: 80px;
+        }
+
+        #deviation-display {
+            font-size: 18px;
+            margin: 10px 0;
+            color: #333;
+        }
+
+        #score-display {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 20px 0;
+            color: #28a745;
+        }
+
+        .instructions {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .edge-warning {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background-color: rgba(255,0,0,0.1);
+            display: none;
+        }
+
+        .progress-container {
+            margin: 20px 0;
+        }
+
+        .settings-panel {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .settings-row {
+            margin-bottom: 10px;
+        }
+
+        .per-minute-results {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 15px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .timer-display {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top">
+        <a class="navbar-brand" href="../index.php">ITMO Portal</a>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item">
+                    <span class="navbar-text mr-2"><?php echo htmlspecialchars($_SESSION['username']); ?></span>
+                    <a href="../pages/logout.php" class="btn btn-outline-dark">Выйти</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1 class="text-center">Тест на аналоговое слежение</h1>
+        
+        <div class="settings-panel">
+            <h4>Настройки теста:</h4>
+            <div class="settings-row row">
+                <div class="col-md-6">
+                    <label for="test-duration">Длительность теста (секунд):</label>
+                    <select id="test-duration" class="form-control">
+                        <option value="120">2 минуты (120 сек)</option>
+                        <option value="300" selected>5 минут (300 сек)</option>
+                        <option value="600">10 минут (600 сек)</option>
+                        <option value="1800">30 минут (1800 сек)</option>
+                        <option value="2700">45 минут (2700 сек)</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="show-timer">Отображать таймер:</label>
+                    <select id="show-timer" class="form-control">
+                        <option value="yes" selected>Да</option>
+                        <option value="no">Нет</option>
+                    </select>
+                </div>
+            </div>
+            <div class="settings-row row">
+                <div class="col-md-6">
+                    <label for="show-results">Отображать промежуточные результаты:</label>
+                    <select id="show-results" class="form-control">
+                        <option value="yes" selected>Да</option>
+                        <option value="no">Нет</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="jerk-mode">Режим рывков:</label>
+                    <select id="jerk-mode" class="form-control">
+                        <option value="random" selected>Случайные</option>
+                        <option value="fixed">Фиксированные интервалы</option>
+                        <option value="accelerating">С ускорением</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h4>Инструкция:</h4>
+            <ol>
+                <li>Выберите настройки теста и нажмите "Начать тест"</li>
+                <li>Удерживайте синий квадрат у красной линии с помощью стрелок ← и →</li>
+                <li>Квадрат будет дергаться - реагируйте на эти изменения как можно быстрее</li>
+                <li>Тест завершится автоматически через выбранное время</li>
+            </ol>
+        </div>
+        
+        <div class="text-center">
+            <button id="start-button" class="btn btn-primary btn-lg">Начать тест</button>
+            <button id="stop-button" class="btn btn-danger btn-lg" style="display:none;">Завершить тест</button>
+            
+            <div id="timer-display" class="timer-display" style="display:none;"></div>
+            
+            <div class="progress-container">
+                <div class="progress">
+                    <div id="test-progress" class="progress-bar progress-bar-striped" role="progressbar" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <div id="tracking-area">
+                <div id="center-line"></div>
+                <div id="tracking-object"></div>
+                <div id="edge-warning" class="edge-warning"></div>
+            </div>
+            
+            <div id="deviation-display">Отклонение: 0px</div>
+            <div id="reaction-time-display">Время реакции: 0 мс</div>
+            <div id="score-display">Очки: 0</div>
+            <div id="current-speed-display">Скорость рывков: 1.0x</div>
+            
+            <div id="per-minute-results" class="per-minute-results" style="display:none;">
+                <h5>Результаты по минутам:</h5>
+                <div id="minute-results-container"></div>
+            </div>
+            
+            <p id="result" class="mt-3"></p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('start-button').addEventListener('click', startTest);
+        document.getElementById('stop-button').addEventListener('click', () => endTest(true));
+
+        let trackingInterval;
+        let jerkInterval;
+        let testTimeout;
+        let progressInterval;
+        let isTestRunning = false;
+        let baseJerkStrength = 60;
+        let testDuration = 30000; // 30 секунд по умолчанию
+        let score = 0;
+        let totalDeviation = 0;
+        let measurements = 0;
+        let lastJerkTime = 0;
+        let reactionStartTime = 0;
+        let reactionTimes = [];
+        let isReacting = false;
+        let startTime = 0;
+        let currentSpeedMultiplier = 1.0;
+        let minuteScores = [];
+        let minuteDeviations = [];
+        let minuteReactions = [];
+        let currentMinute = 0;
+
+        function startTest() {
+            console.log("Тест начат");
+            // Получаем настройки из формы
+            testDuration = parseInt(document.getElementById('test-duration').value) * 1000;
+            const showTimer = document.getElementById('show-timer').value === 'yes';
+            const showResults = document.getElementById('show-results').value === 'yes';
+            const jerkMode = document.getElementById('jerk-mode').value;
+            
+            // Сбрасываем все показатели
+            const result = document.getElementById('result');
+            result.textContent = '';
+            document.getElementById('start-button').disabled = true;
+            document.getElementById('stop-button').style.display = 'inline-block';
+            document.getElementById('score-display').textContent = "Очки: 0";
+            document.getElementById('deviation-display').textContent = "Отклонение: 0px";
+            document.getElementById('reaction-time-display').textContent = "Время реакции: 0 мс";
+            document.getElementById('edge-warning').style.display = 'none';
+            document.getElementById('current-speed-display').textContent = "Скорость рывков: 1.0x";
+            
+            if (showTimer) {
+                document.getElementById('timer-display').style.display = 'block';
+            } else {
+                document.getElementById('timer-display').style.display = 'none';
+            }
+            
+            if (showResults) {
+                document.getElementById('per-minute-results').style.display = 'block';
+                document.getElementById('minute-results-container').innerHTML = '';
+            } else {
+                document.getElementById('per-minute-results').style.display = 'none';
+            }
+
+            score = 0;
+            totalDeviation = 0;
+            measurements = 0;
+            reactionTimes = [];
+            minuteScores = [];
+            minuteDeviations = [];
+            minuteReactions = [];
+            currentMinute = 0;
+            currentSpeedMultiplier = 1.0;
+            isTestRunning = true;
+            isReacting = false;
+            startTime = Date.now();
+
+            // Установка квадратика по центру
+            const trackingObject = document.getElementById('tracking-object');
+            trackingObject.style.left = 'calc(50% - 25px)';
+
+            startTracking();
+            setupJerks(jerkMode);
+            addKeyboardControls();
+            
+            // Обновление прогресса и таймера
+            updateProgressBar();
+            progressInterval = setInterval(updateProgressBar, 1000);
+            
+            // Автоматическое завершение теста через заданное время
+            testTimeout = setTimeout(() => {
+                endTest(true);
+            }, testDuration);
+            
+            // Запуск минутных интервалов для сбора статистики
+            setInterval(recordMinuteStats, 60000);
+        }
+
+        function setupJerks(mode) {
+            clearInterval(jerkInterval);
+            
+            if (mode === 'random') {
+                // Случайные рывки с интервалом 2-5 секунд
+                jerkInterval = setInterval(() => {
+                    if (!isTestRunning) return;
+                    performJerk();
+                }, 2000 + Math.random() * 3000);
+            } else if (mode === 'fixed') {
+                // Фиксированные интервалы - каждые 3 секунды
+                jerkInterval = setInterval(() => {
+                    if (!isTestRunning) return;
+                    performJerk();
+                }, 3000);
+            } else if (mode === 'accelerating') {
+                // Рывки с ускорением - интервал уменьшается, сила увеличивается
+                let jerkIntervalTime = 3000;
+                jerkInterval = setInterval(() => {
+                    if (!isTestRunning) return;
+                    performJerk();
+                    
+                    // Уменьшаем интервал и увеличиваем силу рывков
+                    jerkIntervalTime = Math.max(500, jerkIntervalTime * 0.95);
+                    currentSpeedMultiplier = Math.min(3.0, currentSpeedMultiplier * 1.05);
+                    document.getElementById('current-speed-display').textContent = 
+                        `Скорость рывков: ${currentSpeedMultiplier.toFixed(1)}x`;
+                    
+                    clearInterval(jerkInterval);
+                    jerkInterval = setInterval(() => {
+                        if (!isTestRunning) return;
+                        performJerk();
+                    }, jerkIntervalTime);
+                }, jerkIntervalTime);
+            }
+        }
+
+        function performJerk() {
+            const trackingObject = document.getElementById('tracking-object');
+            
+            // Случайное смещение с учетом текущего множителя скорости
+            const jerk = (Math.random() * baseJerkStrength * 2 - baseJerkStrength) * currentSpeedMultiplier;
+            
+            // Запоминаем время рывка
+            lastJerkTime = Date.now();
+            isReacting = true;
+            
+            // Применяем рывок
+            applyMovement(jerk);
+            
+            // Визуальный эффект рывка
+            trackingObject.style.transform = 'translateY(-50%) scale(1.1)';
+            setTimeout(() => {
+                trackingObject.style.transform = 'translateY(-50%) scale(1)';
+            }, 200);
+        }
+
+        function startTracking() {
+            trackingInterval = setInterval(() => {
+                if (!isTestRunning) return;
+                
+                const trackingObject = document.getElementById('tracking-object');
+                const centerLine = document.getElementById('center-line');
+                
+                // Получаем текущую позицию
+                const objectRect = trackingObject.getBoundingClientRect();
+                const centerRect = centerLine.getBoundingClientRect();
+                const currentPos = objectRect.left + objectRect.width/2;
+                const centerPos = centerRect.left + centerRect.width/2;
+                
+                // Вычисляем отклонение
+                const deviation = Math.abs(currentPos - centerPos);
+                totalDeviation += deviation;
+                measurements++;
+                
+                // Обновляем отображение
+                document.getElementById('deviation-display').textContent = `Отклонение: ${Math.round(deviation)}px`;
+                score += Math.max(0, 100 - Math.round(deviation));
+                document.getElementById('score-display').textContent = `Очки: ${score}`;
+                
+            }, 100);
+        }
+
+        function applyMovement(offset) {
+            const trackingObject = document.getElementById('tracking-object');
+            const trackingArea = document.getElementById('tracking-area');
+            const areaRect = trackingArea.getBoundingClientRect();
+            const objectRect = trackingObject.getBoundingClientRect();
+            
+            // Получаем текущую позицию объекта в пикселях
+            const currentLeft = parseFloat(trackingObject.style.left) || 
+                              (objectRect.left - areaRect.left);
+            
+            // Вычисляем новую позицию
+            const newLeft = currentLeft + offset;
+            
+            // Ограничиваем движение в пределах области
+            const boundedLeft = Math.max(0, Math.min(areaRect.width - objectRect.width, newLeft));
+            
+            trackingObject.style.left = `${boundedLeft}px`;
+            
+            // Показываем предупреждение, если объект близко к краю
+            if (boundedLeft <= 10 || boundedLeft >= areaRect.width - objectRect.width - 10) {
+                document.getElementById('edge-warning').style.display = 'block';
+            } else {
+                document.getElementById('edge-warning').style.display = 'none';
+            }
+        }
+
+        function addKeyboardControls() {
+            document.addEventListener('keydown', (e) => {
+                if (!isTestRunning) return;
+                
+                const moveStep = 15;
+
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                    // Фиксируем время реакции, если был рывок
+                    if (isReacting) {
+                        const reactionTime = Date.now() - lastJerkTime;
+                        reactionTimes.push(reactionTime);
+                        document.getElementById('reaction-time-display').textContent = 
+                            `Время реакции: ${reactionTime} мс`;
+                        isReacting = false;
+                    }
+                    
+                    // Применяем движение
+                    if (e.key === 'ArrowLeft') {
+                        applyMovement(-moveStep);
+                    } else {
+                        applyMovement(moveStep);
+                    }
+                }
+            });
+        }
+
+        function updateProgressBar() {
+            if (!isTestRunning) return;
+            
+            const elapsed = Date.now() - startTime;
+            const progress = (elapsed / testDuration) * 100;
+            document.getElementById('test-progress').style.width = `${Math.min(100, progress)}%`;
+            
+            // Обновляем таймер
+            const remaining = Math.max(0, (testDuration - elapsed) / 1000);
+            const minutes = Math.floor(remaining / 60);
+            const seconds = Math.floor(remaining % 60);
+            document.getElementById('timer-display').textContent = 
+                `Осталось времени: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function recordMinuteStats() {
+            if (!isTestRunning) return;
+            
+            currentMinute++;
+            
+            // Рассчитываем средние значения за последнюю минуту
+            const minuteScore = score - (minuteScores.reduce((a, b) => a + b, 0));
+            const minuteDeviation = totalDeviation / measurements - (minuteDeviations.reduce((a, b) => a + b, 0));
+            const minuteReaction = reactionTimes.length > 0 ? 
+                reactionTimes.slice(minuteReactions.reduce((a, b) => a + b, 0)).reduce((a, b) => a + b, 0) / 
+                (reactionTimes.length - minuteReactions.reduce((a, b) => a + b, 0)) : 0;
+            
+            minuteScores.push(minuteScore);
+            minuteDeviations.push(minuteDeviation);
+            minuteReactions.push(reactionTimes.length - minuteReactions.reduce((a, b) => a + b, 0));
+            
+            // Добавляем запись в результаты по минутам
+            if (document.getElementById('show-results').value === 'yes') {
+                const resultsContainer = document.getElementById('minute-results-container');
+                const resultItem = document.createElement('div');
+                resultItem.className = 'minute-result';
+                resultItem.innerHTML = `
+                    <p><strong>Минута ${currentMinute}:</strong> 
+                    Очки: ${minuteScore} | 
+                    Среднее отклонение: ${minuteDeviation.toFixed(1)}px | 
+                    Среднее время реакции: ${minuteReaction.toFixed(1)} мс</p>
+                `;
+                resultsContainer.appendChild(resultItem);
+                resultsContainer.scrollTop = resultsContainer.scrollHeight;
+            }
+        }
+
+        function endTest(isSuccess) {
+            isTestRunning = false;
+            clearInterval(trackingInterval);
+            clearInterval(jerkInterval);
+            clearInterval(progressInterval);
+            clearTimeout(testTimeout);
+
+            document.getElementById('start-button').disabled = false;
+            document.getElementById('stop-button').style.display = 'none';
+            document.getElementById('test-progress').style.width = '100%';
+
+            const result = document.getElementById('result');
+            
+            if (reactionTimes.length > 0) {
+                const averageReaction = reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length;
+                const avgDeviation = totalDeviation / measurements;
+                
+                // Добавляем общие результаты
+                let resultsHTML = `
+                    <div class="alert alert-info">
+                        <h4>Результаты теста:</h4>
+                        <p><strong>Общее время:</strong> ${(testDuration/1000).toFixed(0)} секунд</p>
+                        <p><strong>Среднее время реакции:</strong> ${averageReaction.toFixed(2)} мс</p>
+                        <p><strong>Точность управления:</strong> ${avgDeviation.toFixed(2)} px (среднее отклонение)</p>
+                        <p><strong>Финальный счет:</strong> ${score}</p>
+                `;
+                
+                // Добавляем результаты по минутам, если они включены
+                if (document.getElementById('show-results').value === 'yes' && minuteScores.length > 0) {
+                    resultsHTML += `<h5 class="mt-3">Результаты по минутам:</h5>`;
+                    
+                    minuteScores.forEach((minScore, index) => {
+                        const minDev = minuteDeviations[index];
+                        const minReact = minuteReactions[index] > 0 ? 
+                            reactionTimes.slice(
+                                index > 0 ? minuteReactions.slice(0, index).reduce((a, b) => a + b, 0) : 0, 
+                                minuteReactions.slice(0, index+1).reduce((a, b) => a + b, 0)
+                            ).reduce((a, b) => a + b, 0) / minuteReactions[index] : 0;
+                        
+                        resultsHTML += `
+                            <p><strong>Минута ${index+1}:</strong> 
+                            Очки: ${minScore} | 
+                            Среднее отклонение: ${minDev.toFixed(1)}px | 
+                            Среднее время реакции: ${minReact.toFixed(1)} мс</p>
+                        `;
+                    });
+                }
+                
+                resultsHTML += `</div>`;
+                result.innerHTML = resultsHTML;
+                
+                saveResult('tracking_test', averageReaction, 0, avgDeviation, score);
+            } else {
+                result.innerHTML = `
+                    <div class="alert alert-warning">
+                        <h4>Тест завершен</h4>
+                        <p>Не зафиксировано реакций на изменения движения</p>
+                    </div>
+                `;
+            }
+        }
+
+        function saveResult(testName, reactionTime, stdDev, avgDeviation, score) {
+            const data = {
+                user_id: 1, // Замените на реальный user_id
+                test_name: testName,
+                reaction_time: reactionTime,
+                correct_answers: 0,
+                total_questions: 0,
+                attempts: 1,
+                average_time: reactionTime,
+                average_deviation: avgDeviation,
+                score: score,
+                created_at: new Date().toISOString()
+            };
+
+            console.log('Отправляемые данные:', data);
+
+            fetch('../php/save_test_result.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ошибка сети: ' + response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    console.log('Результат успешно сохранен в базе данных');
+                } else {
+                    console.error('Ошибка при сохранении результата:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка при отправке данных:', error);
+            });
+        }
+    </script>
+</body>
+</html>

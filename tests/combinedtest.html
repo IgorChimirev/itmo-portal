@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Комбинированный тест (Круги + Цвета)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 30px;
+        }
+        .test-area {
+            width: 300px;
+            height: 300px;
+            position: relative;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+        }
+        #color-test {
+            width: 200px;
+            height: 200px;
+            margin: 20px auto;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            display: none;
+        }
+        .controls {
+            margin: 30px 0;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 18px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .instructions {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px auto;
+            max-width: 800px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .results {
+            margin-top: 30px;
+            display: none;
+        }
+        .result-item {
+            background-color: white;
+            padding: 15px;
+            margin: 10px auto;
+            border-radius: 8px;
+            max-width: 600px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .key-hint {
+            display: inline-block;
+            padding: 5px 10px;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            margin: 0 5px;
+            font-family: monospace;
+        }
+        .hit-feedback {
+            position: absolute;
+            font-size: 20px;
+            font-weight: bold;
+            animation: fadeOut 1s forwards;
+            pointer-events: none;
+            z-index: 100;
+        }
+        @keyframes fadeOut {
+            to { opacity: 0; transform: translateY(-20px); }
+        }
+        .hit { color: #2ecc71; }
+        .miss { color: #e74c3c; }
+        .save-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .btn-next {
+            margin: 20px auto;
+            padding: 12px 24px;
+            font-size: 18px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            display: none;
+            text-decoration: none;
+        }
+        .btn-next:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Комбинированный тест на реакцию</h1>
+    
+    <div class="instructions">
+        <h2>Инструкция</h2>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0; text-align: left;">
+            <tr style="background-color: #f0f0f0;">
+                <th style="padding: 10px; border: 1px solid #ccc;">Этап</th>
+                <th style="padding: 10px; border: 1px solid #ccc;">Действие</th>
+            </tr>
+            <tr>
+                <td style="padding: 10px; border: 1px solid #ccc;">1. Настройка</td>
+                <td style="padding: 10px; border: 1px solid #ccc;">Выберите длительность теста и настройки отображения (таймер, результаты за минуту).</td>
+            </tr>
+            <tr>
+                <td style="padding: 10px; border: 1px solid #ccc;">2. Старт</td>
+                <td style="padding: 10px; border: 1px solid #ccc;">Нажмите кнопку <strong>"Старт"</strong> для начала теста.</td>
+            </tr>
+            <tr>
+                <td style="padding: 10px; border: 1px solid #ccc;">3. Круги</td>
+                <td style="padding: 10px; border: 1px solid #ccc;">
+                    Когда шар совпадёт с красной точкой, нажмите:<br>
+                    — Верхний круг (медленный): <span class="key-hint">Q</span><br>
+                    — Средний круг (средний): <span class="key-hint">W</span><br>
+                    — Нижний круг (быстрый): <span class="key-hint">E</span><br>
+                    <strong>Ускорение</strong>: Каждые 30 секунд скорость каждого круга увеличивается на 0.5 (максимум до 10).
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 10px; border: 1px solid #ccc;">4. Цветовой тест</td>
+                <td style="padding: 10px; border: 1px solid #ccc;">Кликайте на квадрат <strong>только когда он зелёный</strong>.</td>
+            </tr>
+            <tr>
+                <td style="padding: 10px; border: 1px solid #ccc;">5. Завершение</td>
+                <td style="padding: 10px; border: 1px solid #ccc;">Тест завершится автоматически по истечении выбранного времени.</td>
+            </tr>
+        </table>
+    </div>
+    
+    <div class="controls">
+        <label for="testDuration">Выберите длительность теста (секунды):</label>
+        <select id="testDuration">
+            <option value="120">120 секунд (2 минуты)</option>
+            <option value="300">300 секунд (5 минут)</option>
+            <option value="600">600 секунд (10 минут)</option>
+            <option value="1800">1800 секунд (30 минут)</option>
+            <option value="2700">2700 секунд (45 минут)</option>
+        </select>
+        <label><input type="checkbox" id="showTimer" checked> Показывать время</label>
+        <label><input type="checkbox" id="showMinuteResults" checked> Показывать результаты за минуту</label>
+        <button id="start-button">Старт</button>
+    </div>
+    
+    <div id="timer" style="font-size: 24px; margin: 20px;"></div>
+    <progress id="progressBar" value="0" max="100"></progress>
+    <span id="progressText">0%</span>
+    
+    <div class="container">
+        <div class="test-area">
+            <canvas id="circle1" width="300" height="300"></canvas>
+            <p>Уровень 1 (Q)</p>
+        </div>
+        <div class="test-area">
+            <canvas id="circle2" width="300" height="300"></canvas>
+            <p>Уровень 2 (W)</p>
+        </div>
+        <div class="test-area">
+            <canvas id="circle3" width="300" height="300"></canvas>
+            <p>Уровень 3 (E)</p>
+        </div>
+    </div>
+    
+    <div id="color-test"></div>
+    <div id="minuteResults"></div>
+    
+    <div id="results" class="results">
+        <h2>Результаты</h2>
+        <div id="results-content"></div>
+        <a href="../tests/testtest.html" id="next-test-button" class="btn-next">Следующий тест</a>
+    </div>
+    
+    <div id="saveStatus" class="save-status"></div>
+
+    <script>
+        // Конфигурация теста
+        const CONFIG = {
+            duration: 30000,
+            circles: [
+                { id: 'circle1', key: 'q', speed: 1.5, targetAngle: Math.PI/2, color: '#3498db' },
+                { id: 'circle2', key: 'w', speed: 2.5, targetAngle: Math.PI, color: '#e74c3c' },
+                { id: 'circle3', key: 'e', speed: 3.5, targetAngle: 3*Math.PI/2, color: '#2ecc71' }
+            ],
+            colorTest: {
+                colors: ['red', 'green', 'blue'],
+                targetColor: 'green',
+                interval: 1000
+            },
+            radius: 120,
+            ballRadius: 15,
+            targetRadius: 8,
+            acceleration: {
+                amount: 0.5,
+                interval: 30000,
+                maxSpeed: 10
+            }
+        };
+
+        // Состояние теста
+        const state = {
+            startTime: null,
+            isRunning: false,
+            animationFrame: null,
+            colorTimer: null,
+            lastColorChange: null,
+            circlesData: CONFIG.circles.map(circle => ({
+                id: circle.id,
+                attempts: 0,
+                successes: 0,
+                reactionTimes: [],
+                bestReaction: null,
+                lastIntersection: null,
+                isIntersecting: false
+            })),
+            colorTestData: {
+                attempts: 0,
+                successes: 0,
+                reactionTimes: [],
+                bestReaction: null
+            },
+            keyPressHandler: null,
+            colorClickHandler: null,
+            userId: 1,
+            minuteResults: [],
+            timerInterval: null,
+            progressInterval: null,
+            accelerationInterval: null
+        };
+
+        // Инициализация canvas
+        function initCanvases() {
+            CONFIG.circles.forEach(circle => {
+                const canvas = document.getElementById(circle.id);
+                const ctx = canvas.getContext('2d');
+                circle.ctx = ctx;
+                circle.centerX = canvas.width / 2;
+                circle.centerY = canvas.height / 2;
+                drawCircle(circle);
+            });
+        }
+
+        // Отрисовка круга
+        function drawCircle(circle) {
+            const ctx = circle.ctx;
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            
+            ctx.beginPath();
+            ctx.arc(circle.centerX, circle.centerY, CONFIG.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = '#cccccc';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            const targetX = circle.centerX + Math.cos(circle.targetAngle) * CONFIG.radius;
+            const targetY = circle.centerY + Math.sin(circle.targetAngle) * CONFIG.radius;
+            ctx.beginPath();
+            ctx.arc(targetX, targetY, CONFIG.targetRadius, 0, Math.PI * 2);
+            ctx.fillStyle = '#ff0000';
+            ctx.fill();
+            
+            const ballX = circle.centerX + Math.cos(circle.angle) * CONFIG.radius;
+            const ballY = circle.centerY + Math.sin(circle.angle) * CONFIG.radius;
+            ctx.beginPath();
+            ctx.arc(ballX, ballY, CONFIG.ballRadius, 0, Math.PI * 2);
+            ctx.fillStyle = circle.color;
+            ctx.fill();
+            
+            ctx.fillStyle = '#333333';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Скорость: ${circle.speed.toFixed(1)}`, circle.centerX, 20);
+        }
+
+        // Запуск цветового теста
+        function startColorTest() {
+            const colorElement = document.getElementById('color-test');
+            colorElement.style.display = 'block';
+            
+            let colorIndex = 0;
+            
+            function changeColor() {
+                const now = Date.now();
+                if (now - state.startTime >= CONFIG.duration) return;
+                
+                colorElement.style.backgroundColor = CONFIG.colorTest.colors[colorIndex];
+                state.lastColorChange = now;
+                colorIndex = (colorIndex + 1) % CONFIG.colorTest.colors.length;
+                state.colorTimer = setTimeout(changeColor, CONFIG.colorTest.interval);
+            }
+            
+            state.colorTimer = setTimeout(changeColor, 1000);
+        }
+
+        // Обновление анимации
+        function updateAnimation() {
+            const now = Date.now();
+            const elapsed = now - state.startTime;
+            
+            if (elapsed >= CONFIG.duration) {
+                endTest();
+                return;
+            }
+            
+            CONFIG.circles.forEach((circle, index) => {
+                circle.angle += circle.speed * 0.02;
+                if (circle.angle > Math.PI * 2) circle.angle -= Math.PI * 2;
+                
+                const angleDiff = Math.abs(circle.angle - circle.targetAngle);
+                const normalizedDiff = Math.min(angleDiff, Math.PI * 2 - angleDiff);
+                
+                if (normalizedDiff < 0.1) {
+                    if (!state.circlesData[index].lastIntersection) {
+                        state.circlesData[index].lastIntersection = now;
+                        state.circlesData[index].isIntersecting = true;
+                    }
+                } else {
+                    if (state.circlesData[index].isIntersecting) {
+                        state.circlesData[index].isIntersecting = false;
+                    }
+                    state.circlesData[index].lastIntersection = null;
+                }
+                
+                drawCircle(circle);
+            });
+            
+            state.animationFrame = requestAnimationFrame(updateAnimation);
+        }
+
+        // Обработчик нажатия клавиш
+        function handleKeyPress(e) {
+            if (!state.isRunning) return;
+            
+            const key = e.key.toLowerCase();
+            const circleIndex = CONFIG.circles.findIndex(c => c.key === key);
+            
+            if (circleIndex >= 0) {
+                const result = state.circlesData[circleIndex];
+                const circle = CONFIG.circles[circleIndex];
+                result.attempts++;
+                
+                if (result.isIntersecting) {
+                    const reactionTime = Date.now() - result.lastIntersection;
+                    result.successes++;
+                    result.reactionTimes.push(reactionTime);
+                    
+                    if (!result.bestReaction || reactionTime < result.bestReaction) {
+                        result.bestReaction = reactionTime;
+                    }
+                    
+                    showFeedback(circle, true, reactionTime);
+                    result.isIntersecting = false;
+                    result.lastIntersection = null;
+                } else {
+                    showFeedback(circle, false);
+                }
+            }
+        }
+
+        // Показ обратной связи
+        function showFeedback(circle, isHit, reactionTime = 0) {
+            const canvas = document.getElementById(circle.id);
+            const feedback = document.createElement('div');
+            feedback.className = `hit-feedback ${isHit ? 'hit' : 'miss'}`;
+            feedback.textContent = isHit ? `Попал! ${reactionTime}ms` : 'Промах!';
+            
+            const rect = canvas.getBoundingClientRect();
+            feedback.style.left = `${rect.left + canvas.width/2 - 50}px`;
+            feedback.style.top = `${rect.top + canvas.height/2 - 30}px`;
+            
+            document.body.appendChild(feedback);
+            
+            setTimeout(() => {
+                feedback.remove();
+            }, 1000);
+        }
+
+        // Обработчик клика по цвету
+        function handleColorClick() {
+            if (!state.isRunning) return;
+            
+            const now = Date.now();
+            state.colorTestData.attempts++;
+            
+            if (document.getElementById('color-test').style.backgroundColor === CONFIG.colorTest.targetColor) {
+                const reactionTime = now - state.lastColorChange;
+                state.colorTestData.successes++;
+                state.colorTestData.reactionTimes.push(reactionTime);
+                
+                if (!state.colorTestData.bestReaction || reactionTime < state.colorTestData.bestReaction) {
+                    state.colorTestData.bestReaction = reactionTime;
+                }
+                
+                showColorSuccess(reactionTime);
+            }
+        }
+
+        // Показ успеха для цветового теста
+        function showColorSuccess(reactionTime) {
+            const colorElement = document.getElementById('color-test');
+            colorElement.textContent = `✓ Успех! ${reactionTime}ms`;
+            colorElement.style.color = 'white';
+            colorElement.style.fontWeight = 'bold';
+            colorElement.style.display = 'flex';
+            colorElement.style.alignItems = 'center';
+            colorElement.style.justifyContent = 'center';
+            
+            setTimeout(() => {
+                colorElement.textContent = '';
+            }, 500);
+        }
+
+        // Обновление таймера
+        function updateTimer() {
+            if (!state.isRunning) return;
+            
+            const showTimer = document.getElementById('showTimer').checked;
+            const timerElement = document.getElementById('timer');
+            
+            if (showTimer) {
+                const now = Date.now();
+                const elapsed = now - state.startTime;
+                const remaining = Math.max(0, CONFIG.duration - elapsed);
+                timerElement.textContent = `Осталось: ${(remaining / 1000).toFixed(0)} секунд`;
+            } else {
+                timerElement.textContent = '';
+            }
+        }
+
+        // Обновление прогресса
+        function updateProgress() {
+            if (!state.isRunning) return;
+            
+            const now = Date.now();
+            const elapsed = now - state.startTime;
+            const progress = Math.min(100, (elapsed / CONFIG.duration) * 100);
+            
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            progressBar.value = progress;
+            progressText.textContent = `${Math.round(progress)}%`;
+        }
+
+        // Отслеживание результатов за минуту
+        function trackMinuteResults() {
+            if (!state.isRunning) return;
+            
+            const now = Date.now();
+            const elapsed = now - state.startTime;
+            
+            if (elapsed >= 60000) {
+                const minuteData = {
+                    minute: Math.floor(elapsed / 60000),
+                    circles: state.circlesData.map(data => ({
+                        attempts: data.attempts,
+                        successes: data.successes,
+                        avgTime: data.reactionTimes.length > 0 
+                            ? Math.round(data.reactionTimes.reduce((a, b) => a + b, 0) / data.reactionTimes.length)
+                            : 0
+                    })),
+                    colorTest: {
+                        attempts: state.colorTestData.attempts,
+                        successes: state.colorTestData.successes,
+                        avgTime: state.colorTestData.reactionTimes.length > 0 
+                            ? Math.round(state.colorTestData.reactionTimes.reduce((a, b) => a + b, 0) / 
+                              state.colorTestData.reactionTimes.length)
+                            : 0
+                    }
+                };
+                state.minuteResults.push(minuteData);
+                
+                state.circlesData.forEach(data => {
+                    data.attempts = 0;
+                    data.successes = 0;
+                    data.reactionTimes = [];
+                });
+                state.colorTestData.attempts = 0;
+                state.colorTestData.successes = 0;
+                state.colorTestData.reactionTimes = [];
+                
+                displayMinuteResults();
+            }
+        }
+
+        // Отображение результатов за минуту
+        function displayMinuteResults() {
+            const showMinuteResults = document.getElementById('showMinuteResults').checked;
+            const minuteResultsDiv = document.getElementById('minuteResults');
+            
+            if (showMinuteResults) {
+                minuteResultsDiv.inner誰もいないHTML = state.minuteResults.map(data => `
+                    <div class="result-item">
+                        <h4>Минута ${data.minute}</h4>
+                        ${data.circles.map((circle, i) => `
+                            <p>Круг ${i+1}: ${circle.successes} из ${circle.attempts}, среднее время: ${circle.avgTime}ms</p>
+                        `).join('')}
+                        <p>Цветовой тест: ${data.colorTest.successes} из ${data.colorTest.attempts}, среднее время: ${data.colorTest.avgTime}ms</p>
+                    </div>
+                `).join('');
+            } else {
+                minuteResultsDiv.innerHTML = '';
+            }
+        }
+
+        // Ускорение кругов
+        function accelerateCircles() {
+            if (!state.isRunning) return;
+            
+            CONFIG.circles.forEach(circle => {
+                circle.speed = Math.min(circle.speed + CONFIG.acceleration.amount, 
+                                      CONFIG.acceleration.maxSpeed);
+            });
+        }
+
+        // Начало теста
+        function startTest() {
+            if (state.isRunning) return;
+            
+            const durationSelect = document.getElementById('testDuration');
+            CONFIG.duration = parseInt(durationSelect.value) * 1000;
+            
+            console.log('Тест начат');
+            state.isRunning = true;
+            document.getElementById('start-button').disabled = true;
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('saveStatus').style.display = 'none';
+            document.getElementById('next-test-button').style.display = 'none';
+            
+            CONFIG.circles.forEach(circle => {
+                circle.angle = Math.random() * Math.PI * 2;
+                circle.speed = { 1: 1.5, 2: 2.5, 3: 3.5 }[circle.id.slice(-1)];
+            });
+            
+            state.circlesData.forEach(data => {
+                data.attempts = 0;
+                data.successes = 0;
+                data.reactionTimes = [];
+                data.bestReaction = null;
+                data.lastIntersection = null;
+                data.isIntersecting = false;
+            });
+            
+            state.colorTestData = {
+                attempts: 0,
+                successes: 0,
+                reactionTimes: [],
+                bestReaction: null
+            };
+            
+            state.startTime = Date.now();
+            state.keyPressHandler = (e) => handleKeyPress(e);
+            document.addEventListener('keydown', state.keyPressHandler);
+            
+            state.colorClickHandler = () => handleColorClick();
+            document.getElementById('color-test')
+                .addEventListener('click', state.colorClickHandler);
+            
+            state.minuteResults = [];
+            updateTimer();
+            state.timerInterval = setInterval(updateTimer, 1000);
+            updateProgress();
+            state.progressInterval = setInterval(updateProgress, 100);
+            state.minuteInterval = setInterval(trackMinuteResults, 1000);
+            state.accelerationInterval = setInterval(accelerateCircles, CONFIG.acceleration.interval);
+            
+            updateAnimation();
+            startColorTest();
+            
+            setTimeout(endTest, CONFIG.duration);
+        }
+
+        // Завершение теста
+        function endTest() {
+            if (!state.isRunning) return;
+            
+            console.log('Тест завершен');
+            state.isRunning = false;
+            cancelAnimationFrame(state.animationFrame);
+            clearTimeout(state.colorTimer);
+            clearInterval(state.timerInterval);
+            clearInterval(state.progressInterval);
+            clearInterval(state.minuteInterval);
+            clearInterval(state.accelerationInterval);
+            document.removeEventListener('keydown', state.keyPressHandler);
+            document.getElementById('color-test')
+                .removeEventListener('click', state.colorClickHandler);
+            document.getElementById('start-button').disabled = false;
+            
+            document.getElementById('timer').textContent = '';
+            document.getElementById('progressBar').value = 100;
+            document.getElementById('progressText').textContent = '100%';
+            
+            showResults();
+            saveResults();
+        }
+
+        // Показ результатов
+        function showResults() {
+            const resultsContainer = document.getElementById('results-content');
+            resultsContainer.innerHTML = '';
+            
+            state.circlesData.forEach((data, index) => {
+                const circle = CONFIG.circles[index];
+                const avgReaction = data.reactionTimes.length > 0 
+                    ? Math.round(data.reactionTimes.reduce((a, b) => a + b, 0) / data.reactionTimes.length)
+                    : 0;
+                
+                const resultElement = document.createElement('div');
+                resultElement.className = 'result-item';
+                resultElement.innerHTML = `
+                    <h3>Круг ${index + 1} (${circle.key.toUpperCase()})</h3>
+                    <p>Скорость: ${circle.speed.toFixed(1)}</p>
+                    <p>Правильные нажатия: ${data.successes} из ${data.attempts}</p>
+                    <p>Среднее время: ${avgReaction}ms</p>
+                    ${data.bestReaction ? `<p>Лучший результат: ${data.bestReaction}ms</p>` : ''}
+                `;
+                resultsContainer.appendChild(resultElement);
+            });
+            
+            const colorAvg = state.colorTestData.reactionTimes.length > 0
+                ? Math.round(state.colorTestData.reactionTimes.reduce((a, b) => a + b, 0) / 
+                  state.colorTestData.reactionTimes.length)
+                : 0;
+            
+            const colorResult = document.createElement('div');
+            colorResult.className = 'result-item';
+            colorResult.innerHTML = `
+                <h3>Цветовой тест</h3>
+                <p>Правильные клики: ${state.colorTestData.successes} из ${state.colorTestData.attempts}</p>
+                <p>Среднее время: ${colorAvg}ms</p>
+                ${state.colorTestData.bestReaction ? `<p>Лучший результат: ${state.colorTestData.bestReaction}ms</p>` : ''}
+            `;
+            resultsContainer.appendChild(colorResult);
+            
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('color-test').style.display = 'none';
+            document.getElementById('next-test-button').style.display = 'inline-block';
+        }
+
+        // Сохранение результатов
+        function saveResults() {
+            const testData = {
+                user_id: state.userId,
+                test_name: 'combined_reaction_test',
+                circles: state.circlesData.map((data, index) => ({
+                    level: index + 1,
+                    speed: CONFIG.circles[index].speed,
+                    attempts: data.attempts,
+                    correct_answers: data.successes,
+                    average_time: data.reactionTimes.length > 0 
+                        ? Math.round(data.reactionTimes.reduce((a, b) => a + b, 0) / data.reactionTimes.length)
+                        : 0,
+                    best_time: data.bestReaction || 0
+                })),
+                color_test: {
+                    attempts: state.colorTestData.attempts,
+                    correct_answers: state.colorTestData.successes,
+                    average_time: state.colorTestData.reactionTimes.length > 0
+                        ? Math.round(state.colorTestData.reactionTimes.reduce((a, b) => a + b, 0) / 
+                          state.colorTestData.reactionTimes.length)
+                        : 0,
+                    best_time: state.colorTestData.bestReaction || 0
+                }
+            };
+            
+            fetch('../php/save_combined_test_result.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(testData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ошибка сети');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Success:', data);
+                showSaveStatus(true, data.message || 'Результаты успешно сохранены');
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                showSaveStatus(false, error.message || 'Ошибка при сохранении результатов');
+            });
+        }
+
+        // Показ статуса сохранения
+        function showSaveStatus(isSuccess, message) {
+            const statusElement = document.getElementById('saveStatus');
+            statusElement.textContent = message;
+            statusElement.className = `save-status ${isSuccess ? 'success' : 'error'}`;
+            statusElement.style.display = 'block';
+        }
+
+        // Инициализация
+        window.onload = function() {
+            initCanvases();
+            document.getElementById('start-button').addEventListener('click', startTest);
+        };
+    </script>
+</body>
+</html>

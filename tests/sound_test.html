@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест на реакцию на звук</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="../assets/css/tests.css" rel="stylesheet">
+    <style>
+        /* Дополнительные стили для центрирования */
+        html, body {
+            height: 100%;
+        }
+        .container-center {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+        .test-container {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Навигационная панель -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="../index.php">ITMO Portal</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                <?php if (isset($_SESSION['username'])): ?>
+                    <li class="nav-item">
+                        <span class="navbar-text mr-2"><?php echo htmlspecialchars($_SESSION['username']); ?></span>
+                        <a href="../pages/logout.php" class="btn btn-outline-dark">Выйти</a>
+                    </li>
+                <?php endif; ?>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Основной контент -->
+    <div class="container-center">
+        <div class="test-container">
+            <h1 class="text-center">Тест на реакцию на звук</h1>
+            <div class="text-center">
+                <button id="start-button" class="btn btn-primary">Начать тест</button>
+                <p id="result" class="mt-3"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let testActive = false; // Флаг для отслеживания активности теста
+        let timeoutId; // ID таймаута для завершения теста
+
+        document.getElementById('start-button').addEventListener('click', startTest);
+
+        function startTest() {
+            console.log("Тест начат");
+            const result = document.getElementById('result');
+            result.textContent = '';
+            document.getElementById('start-button').disabled = true;
+            testActive = true;
+
+            // Случайная задержка перед воспроизведением звука
+            const delay = Math.random() * 2000 + 1000; // От 1 до 3 секунд
+            setTimeout(() => {
+                const audio = new Audio('../assets/sounds/sound.mp3'); // Убедитесь, что путь правильный
+                const startTime = Date.now();
+
+                // Обработка ошибок воспроизведения
+                audio.play().catch(error => {
+                    console.error("Ошибка воспроизведения звука:", error);
+                    result.textContent = "Ошибка воспроизведения звука. Проверьте консоль для подробностей.";
+                    document.getElementById('start-button').disabled = false;
+                    testActive = false;
+                    return;
+                });
+
+                // Таймаут для завершения теста, если пользователь не успел нажать
+                timeoutId = setTimeout(() => {
+                    if (testActive) {
+                        result.textContent = "Время вышло! Вы не успели нажать.";
+                        document.getElementById('start-button').disabled = false;
+                        testActive = false;
+                    }
+                }, 5000); // Таймаут 5 секунд
+
+                // Обработка клика пользователя
+                document.addEventListener('click', () => {
+                    if (testActive) {
+                        clearTimeout(timeoutId); // Отменяем таймаут
+                        const reactionTime = (Date.now() - startTime) / 1000;
+                        result.textContent = `Ваше время реакции: ${reactionTime} секунд`;
+                        saveResult('sound_test', reactionTime);
+
+                        setTimeout(() => {
+                            result.textContent += " Тест завершён!";
+                            document.getElementById('start-button').disabled = false;
+                            testActive = false;
+                        }, 1000);
+                    }
+                }, { once: true });
+            }, delay);
+        }
+
+        function saveResult(testName, reactionTime) {
+            fetch('../php/save_test_result.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    testName,
+                    reactionTime
+                })
+            })
+            .then(response => response.text())
+            .then(data => {
+                console.log("Ответ от сервера:", data);
+            })
+            .catch(error => {
+                console.error('Ошибка при сохранении результата:', error);
+            });
+        }
+    </script>
+
+    <!-- Подключение Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
